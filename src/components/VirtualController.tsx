@@ -88,15 +88,15 @@ export default function VirtualController({ input }: VirtualControllerProps) {
         </div>
         <div className="flex flex-col gap-2 justify-end">
           <ControlButton 
-            label={<Sword size={24} />} 
-            code="KeyJ" 
+            label={<ChevronsUp size={24} />} 
+            code="Space" 
             onPointerDown={handlePointerDown} 
             onPointerUp={handlePointerUp} 
             className="w-14 h-14 rounded-full text-xs mb-6"
           />
           <ControlButton 
-            label={<ChevronsUp size={24} />} 
-            code="Space" 
+            label={<Sword size={24} />} 
+            code="KeyJ" 
             onPointerDown={handlePointerDown} 
             onPointerUp={handlePointerUp} 
             className="w-14 h-14 rounded-full text-xs"
