@@ -16,6 +16,9 @@ export class AudioManager {
     if (!AudioContextClass) return;
     
     this.ctx = new AudioContextClass();
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
     this.initialized = true;
     this.nextNoteTime = this.ctx.currentTime + 0.1;
     this.playBGM();
@@ -23,6 +26,9 @@ export class AudioManager {
 
   playTone(freq: number, type: OscillatorType, duration: number, vol: number = 0.1, slideFreq?: number, startTime?: number) {
     if (!this.ctx) return;
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.type = type;

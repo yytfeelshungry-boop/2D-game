@@ -122,6 +122,7 @@ function ControlButton({ label, code, onPointerDown, onPointerUp, className = "w
       onPointerDown={onPointerDown(code)}
       onPointerUp={onPointerUp(code)}
       onPointerCancel={onPointerUp(code)}
+      onTouchStart={(e) => e.preventDefault()}
       onContextMenu={(e) => e.preventDefault()}
     >
       {label}
