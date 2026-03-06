@@ -66,10 +66,10 @@ export default function GameCanvas() {
         <p className="text-xs text-slate-400">A pixel-art action roguelite</p>
       </div>
       
-      <div className="relative rounded-lg overflow-hidden shadow-2xl shadow-green-900/20 border-2 border-slate-800 group touch-none select-none">
+      <div className="relative rounded-lg overflow-hidden shadow-2xl shadow-green-900/20 border-2 border-slate-800 group touch-none select-none w-full max-w-[800px] bg-black">
         <canvas
           ref={canvasRef}
-          className="w-full max-w-[800px] aspect-video bg-black"
+          className="w-full h-auto max-h-[65vh] object-contain aspect-video"
           style={{ imageRendering: 'pixelated' }}
         />
         {/* CRT Scanline Overlay */}

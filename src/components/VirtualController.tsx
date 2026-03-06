@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Input } from '../game/Input';
+import { audio } from '../game/Audio';
 
 interface VirtualControllerProps {
   input: Input | null;
@@ -9,9 +10,11 @@ export default function VirtualController({ input }: VirtualControllerProps) {
   const [isTouchDevice, setIsTouchDevice] = useState(false);
 
   useEffect(() => {
-    // Check if the device supports touch
+    // Check if the device supports touch or is a small screen
     const checkTouch = () => {
-      setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0);
+      const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      const isSmallScreen = window.innerWidth <= 800;
+      setIsTouchDevice(isTouch || isSmallScreen);
     };
     checkTouch();
     window.addEventListener('resize', checkTouch);
@@ -20,79 +23,82 @@ export default function VirtualController({ input }: VirtualControllerProps) {
 
   if (!isTouchDevice || !input) return null;
 
-  const handleTouchStart = (code: string) => (e: React.TouchEvent) => {
+  const handlePointerDown = (code: string) => (e: React.PointerEvent) => {
     e.preventDefault();
+    audio.init();
     input.simulateKeyDown(code);
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
 
-  const handleTouchEnd = (code: string) => (e: React.TouchEvent) => {
+  const handlePointerUp = (code: string) => (e: React.PointerEvent) => {
     e.preventDefault();
     input.simulateKeyUp(code);
+    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
   };
 
   return (
     <div className="absolute inset-0 pointer-events-none flex justify-between items-end p-4 sm:p-8 z-50">
       {/* Left side: D-Pad */}
-      <div className="flex flex-col gap-2 pointer-events-auto opacity-70">
+      <div className="flex flex-col gap-1 pointer-events-auto opacity-70">
         <div className="flex justify-center">
           <ControlButton 
             label="↑" 
             code="ArrowUp" 
-            onTouchStart={handleTouchStart} 
-            onTouchEnd={handleTouchEnd} 
-            className="w-16 h-16 rounded-xl text-xl"
+            onPointerDown={handlePointerDown} 
+            onPointerUp={handlePointerUp} 
+            className="w-12 h-12 rounded-xl text-lg"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-1">
           <ControlButton 
             label="←" 
             code="ArrowLeft" 
-            onTouchStart={handleTouchStart} 
-            onTouchEnd={handleTouchEnd} 
-            className="w-16 h-16 rounded-xl text-xl"
+            onPointerDown={handlePointerDown} 
+            onPointerUp={handlePointerUp} 
+            className="w-12 h-12 rounded-xl text-lg"
           />
           <ControlButton 
             label="↓" 
             code="ArrowDown" 
-            onTouchStart={handleTouchStart} 
-            onTouchEnd={handleTouchEnd} 
-            className="w-16 h-16 rounded-xl text-xl"
+            onPointerDown={handlePointerDown} 
+            onPointerUp={handlePointerUp} 
+            className="w-12 h-12 rounded-xl text-lg"
           />
           <ControlButton 
             label="→" 
             code="ArrowRight" 
-            onTouchStart={handleTouchStart} 
-            onTouchEnd={handleTouchEnd} 
-            className="w-16 h-16 rounded-xl text-xl"
+            onPointerDown={handlePointerDown} 
+            onPointerUp={handlePointerUp} 
+            className="w-12 h-12 rounded-xl text-lg"
           />
         </div>
       </div>
 
       {/* Right side: Action Buttons */}
-      <div className="flex gap-4 pointer-events-auto opacity-70 mb-4">
-        <div className="flex flex-col gap-4 justify-end">
+      <div className="flex gap-2 pointer-events-auto opacity-70 mb-2">
+        <div className="flex flex-col gap-2 justify-end">
           <ControlButton 
             label="DASH" 
             code="ShiftLeft" 
-            onTouchStart={handleTouchStart} 
-            onTouchEnd={handleTouchEnd} 
-            className="w-20 h-20 rounded-full text-sm"
+            onPointerDown={handlePointerDown} 
+            onPointerUp={handlePointerUp} 
+            className="w-14 h-14 rounded-full text-xs"
           />
         </div>
-        <div className="flex flex-col gap-4 justify-end">
+        <div className="flex flex-col gap-2 justify-end">
           <ControlButton 
             label="ATK" 
             code="KeyJ" 
-            onTouchStart={handleTouchStart} 
-            onTouchEnd={handleTouchEnd} 
-            className="w-20 h-20 rounded-full text-sm mb-10"
+            onPointerDown={handlePointerDown} 
+            onPointerUp={handlePointerUp} 
+            className="w-14 h-14 rounded-full text-xs mb-6"
           />
           <ControlButton 
             label="JUMP" 
             code="Space" 
-            onTouchStart={handleTouchStart} 
-            onTouchEnd={handleTouchEnd} 
-            className="w-20 h-20 rounded-full text-sm"
+            onPointerDown={handlePointerDown} 
+            onPointerUp={handlePointerUp} 
+            className="w-14 h-14 rounded-full text-xs"
           />
         </div>
       </div>
@@ -103,19 +109,20 @@ export default function VirtualController({ input }: VirtualControllerProps) {
 interface ControlButtonProps {
   label: string;
   code: string;
-  onTouchStart: (code: string) => (e: React.TouchEvent) => void;
-  onTouchEnd: (code: string) => (e: React.TouchEvent) => void;
+  onPointerDown: (code: string) => (e: React.PointerEvent) => void;
+  onPointerUp: (code: string) => (e: React.PointerEvent) => void;
   className?: string;
 }
 
-function ControlButton({ label, code, onTouchStart, onTouchEnd, className = "w-16 h-16 rounded-xl" }: ControlButtonProps) {
+function ControlButton({ label, code, onPointerDown, onPointerUp, className = "w-16 h-16 rounded-xl" }: ControlButtonProps) {
   return (
     <button
       className={`bg-slate-800/80 border-2 border-slate-500/50 text-white font-bold flex items-center justify-center active:bg-slate-600/80 active:scale-95 transition-transform select-none ${className}`}
-      style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
-      onTouchStart={onTouchStart(code)}
-      onTouchEnd={onTouchEnd(code)}
-      onTouchCancel={onTouchEnd(code)}
+      style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', touchAction: 'none' }}
+      onPointerDown={onPointerDown(code)}
+      onPointerUp={onPointerUp(code)}
+      onPointerCancel={onPointerUp(code)}
+      onContextMenu={(e) => e.preventDefault()}
     >
       {label}
     </button>

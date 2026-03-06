@@ -1,9 +1,12 @@
+import { audio } from './Audio';
+
 export class Input {
   keys: { [key: string]: boolean } = {};
   justPressed: { [key: string]: boolean } = {};
 
   constructor() {
     window.addEventListener('keydown', (e) => {
+      audio.init();
       if (!this.keys[e.code]) {
         this.justPressed[e.code] = true;
       }
@@ -13,6 +16,14 @@ export class Input {
     window.addEventListener('keyup', (e) => {
       this.keys[e.code] = false;
     });
+
+    window.addEventListener('touchstart', () => {
+      audio.init();
+    }, { passive: true });
+
+    window.addEventListener('mousedown', () => {
+      audio.init();
+    }, { passive: true });
   }
 
   isDown(code: string) {
