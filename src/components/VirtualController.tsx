@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown } from 'lucide-react';
 import { Input } from '../game/Input';
 import { audio } from '../game/Audio';
 
@@ -42,7 +43,7 @@ export default function VirtualController({ input }: VirtualControllerProps) {
       <div className="flex flex-col gap-1 pointer-events-auto opacity-70">
         <div className="flex justify-center">
           <ControlButton 
-            label="↑" 
+            label={<ArrowUp size={24} />} 
             code="ArrowUp" 
             onPointerDown={handlePointerDown} 
             onPointerUp={handlePointerUp} 
@@ -51,21 +52,21 @@ export default function VirtualController({ input }: VirtualControllerProps) {
         </div>
         <div className="flex gap-1">
           <ControlButton 
-            label="←" 
+            label={<ArrowLeft size={24} />} 
             code="ArrowLeft" 
             onPointerDown={handlePointerDown} 
             onPointerUp={handlePointerUp} 
             className="w-12 h-12 rounded-xl text-lg"
           />
           <ControlButton 
-            label="↓" 
+            label={<ArrowDown size={24} />} 
             code="ArrowDown" 
             onPointerDown={handlePointerDown} 
             onPointerUp={handlePointerUp} 
             className="w-12 h-12 rounded-xl text-lg"
           />
           <ControlButton 
-            label="→" 
+            label={<ArrowRight size={24} />} 
             code="ArrowRight" 
             onPointerDown={handlePointerDown} 
             onPointerUp={handlePointerUp} 
@@ -107,7 +108,7 @@ export default function VirtualController({ input }: VirtualControllerProps) {
 }
 
 interface ControlButtonProps {
-  label: string;
+  label: React.ReactNode;
   code: string;
   onPointerDown: (code: string) => (e: React.PointerEvent) => void;
   onPointerUp: (code: string) => (e: React.PointerEvent) => void;
@@ -122,10 +123,21 @@ function ControlButton({ label, code, onPointerDown, onPointerUp, className = "w
       onPointerDown={onPointerDown(code)}
       onPointerUp={onPointerUp(code)}
       onPointerCancel={onPointerUp(code)}
-      onTouchStart={(e) => e.preventDefault()}
-      onContextMenu={(e) => e.preventDefault()}
+      onTouchStart={(e) => {
+        // Only prevent default if it's not a multi-touch gesture on the same button
+        if (e.touches.length <= 1) {
+          e.preventDefault();
+        }
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }}
+      onSelect={(e) => e.preventDefault()}
+      onDragStart={(e) => e.preventDefault()}
     >
-      {label}
+      <span className="pointer-events-none">{label}</span>
     </button>
   );
 }
