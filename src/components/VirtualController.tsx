@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Sword, Wind, ChevronsUp } from 'lucide-react';
 import { Input } from '../game/Input';
 import { audio } from '../game/Audio';
 
@@ -79,7 +79,7 @@ export default function VirtualController({ input }: VirtualControllerProps) {
       <div className="flex gap-2 pointer-events-auto opacity-70 mb-2">
         <div className="flex flex-col gap-2 justify-end">
           <ControlButton 
-            label="DASH" 
+            label={<Wind size={24} />} 
             code="ShiftLeft" 
             onPointerDown={handlePointerDown} 
             onPointerUp={handlePointerUp} 
@@ -88,14 +88,14 @@ export default function VirtualController({ input }: VirtualControllerProps) {
         </div>
         <div className="flex flex-col gap-2 justify-end">
           <ControlButton 
-            label="ATK" 
+            label={<Sword size={24} />} 
             code="KeyJ" 
             onPointerDown={handlePointerDown} 
             onPointerUp={handlePointerUp} 
             className="w-14 h-14 rounded-full text-xs mb-6"
           />
           <ControlButton 
-            label="JUMP" 
+            label={<ChevronsUp size={24} />} 
             code="Space" 
             onPointerDown={handlePointerDown} 
             onPointerUp={handlePointerUp} 
