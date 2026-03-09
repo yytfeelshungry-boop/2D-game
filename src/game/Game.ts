@@ -1,6 +1,7 @@
 import { Input } from './Input';
 import { audio } from './Audio';
 
+
 const GRAVITY = 0.45;
 const FRICTION = 0.8;
 const JUMP_FORCE = -7.5;
@@ -82,15 +83,25 @@ class Particle {
     ctx.fillStyle = this.color;
     ctx.globalAlpha = this.isBlood && this.stopped ? Math.min(1, this.life / 60) : this.life / this.maxLife;
     
+    const drawX = this.x - cameraX;
+    const drawY = this.y - cameraY;
+
     if (!this.isBlood) {
       ctx.shadowColor = this.color;
-      ctx.shadowBlur = 4;
-    }
-    
-    if (this.isBlood && this.stopped) {
-      ctx.fillRect(Math.floor(this.x - cameraX - this.size/2), Math.floor(this.y - cameraY), this.size * 1.5, 2);
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(drawX, drawY, this.size, 0, Math.PI*2);
+      ctx.fill();
     } else {
-      ctx.fillRect(Math.floor(this.x - cameraX), Math.floor(this.y - cameraY), this.size, this.size);
+      if (this.stopped) {
+        ctx.beginPath();
+        ctx.ellipse(drawX, drawY + 1, this.size * 1.5, this.size * 0.5, 0, 0, Math.PI*2);
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.arc(drawX, drawY, this.size, 0, Math.PI*2);
+        ctx.fill();
+      }
     }
     
     ctx.shadowBlur = 0;
@@ -106,12 +117,14 @@ class FloatingText {
   maxLife: number;
   color: string;
   vy: number;
+  scale: number;
 
-  constructor(x: number, y: number, text: string, color: string) {
+  constructor(x: number, y: number, text: string, color: string, scale: number = 1) {
     this.x = x;
     this.y = y;
     this.text = text;
     this.color = color;
+    this.scale = scale;
     this.life = 40;
     this.maxLife = 40;
     this.vy = -2;
@@ -125,15 +138,15 @@ class FloatingText {
 
   draw(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number) {
     ctx.globalAlpha = this.life / this.maxLife;
-    ctx.font = 'bold 12px "JetBrains Mono", monospace';
+    ctx.font = `bold ${12 * this.scale}px "JetBrains Mono", monospace`;
     
     // Shadow
     ctx.fillStyle = '#000';
-    ctx.fillText(this.text, Math.floor(this.x - cameraX) + 1, Math.floor(this.y - cameraY) + 1);
+    ctx.fillText(this.text, this.x - cameraX + 1, this.y - cameraY + 1);
     
     // Text
     ctx.fillStyle = this.color;
-    ctx.fillText(this.text, Math.floor(this.x - cameraX), Math.floor(this.y - cameraY));
+    ctx.fillText(this.text, this.x - cameraX, this.y - cameraY);
     
     ctx.globalAlpha = 1;
   }
@@ -144,12 +157,12 @@ class Item {
   y: number;
   w: number = 10;
   h: number = 10;
-  type: 'score' | 'health';
+  type: 'score' | 'health' | 'weapon';
   vy: number = 0;
   hoverOffset: number = 0;
   hoverTimer: number = 0;
 
-  constructor(x: number, y: number, type: 'score' | 'health') {
+  constructor(x: number, y: number, type: 'score' | 'health' | 'weapon') {
     this.x = x;
     this.y = y;
     this.type = type;
@@ -183,6 +196,10 @@ class Item {
         game.player.hp = Math.min(game.player.maxHp, game.player.hp + healAmount);
         game.floatingTexts.push(new FloatingText(this.x, this.y, `+${healAmount} HP`, "#22c55e")); // Green 500
         for(let i=0; i<10; i++) game.particles.push(new Particle(this.x + this.w/2, this.y + this.h/2, '#22c55e'));
+      } else if (this.type === 'weapon') {
+        game.player.weaponLevel++;
+        game.floatingTexts.push(new FloatingText(this.x, this.y, "WEAPON UP!", "#38bdf8", 1.5)); // Light blue
+        for(let i=0; i<15; i++) game.particles.push(new Particle(this.x + this.w/2, this.y + this.h/2, '#38bdf8'));
       }
       return true; // Picked up
     }
@@ -190,24 +207,87 @@ class Item {
   }
 
   draw(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number) {
-    const drawX = Math.floor(this.x - cameraX);
-    const drawY = Math.floor(this.y - cameraY + this.hoverOffset);
+    const drawX = this.x - cameraX;
+    const drawY = this.y - cameraY + this.hoverOffset;
+    const cx = drawX + this.w/2;
+    const cy = drawY + this.h/2;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(this.hoverTimer * 0.5);
 
     if (this.type === 'score') {
       // Diamond shape for score
-      ctx.fillStyle = '#fbbf24';
+      ctx.shadowColor = '#fbbf24';
+      ctx.shadowBlur = 15;
+      
+      const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, this.w);
+      grad.addColorStop(0, '#fef3c7');
+      grad.addColorStop(1, '#fbbf24');
+      ctx.fillStyle = grad;
+      
       ctx.beginPath();
-      ctx.moveTo(drawX + this.w/2, drawY);
-      ctx.lineTo(drawX + this.w, drawY + this.h/2);
-      ctx.lineTo(drawX + this.w/2, drawY + this.h);
-      ctx.lineTo(drawX, drawY + this.h/2);
+      ctx.moveTo(0, -this.h/2 - 2);
+      ctx.lineTo(this.w/2 + 2, 0);
+      ctx.lineTo(0, this.h/2 + 2);
+      ctx.lineTo(-this.w/2 - 2, 0);
       ctx.fill();
-    } else {
+      
+      // Inner highlight
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.beginPath();
+      ctx.moveTo(0, -this.h/2 + 2);
+      ctx.lineTo(this.w/2 - 2, 0);
+      ctx.lineTo(0, 2);
+      ctx.lineTo(-this.w/2 + 2, 0);
+      ctx.fill();
+      
+    } else if (this.type === 'health') {
       // Cross shape for health
-      ctx.fillStyle = '#22c55e';
-      ctx.fillRect(drawX + 3, drawY, 4, 10);
-      ctx.fillRect(drawX, drawY + 3, 10, 4);
+      ctx.shadowColor = '#22c55e';
+      ctx.shadowBlur = 15;
+      
+      const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, this.w);
+      grad.addColorStop(0, '#dcfce7');
+      grad.addColorStop(1, '#22c55e');
+      ctx.fillStyle = grad;
+      
+      ctx.beginPath();
+      ctx.roundRect(-2, -this.h/2 - 2, 4, this.h + 4, 2);
+      ctx.roundRect(-this.w/2 - 2, -2, this.w + 4, 4, 2);
+      ctx.fill();
+      
+      // Inner highlight
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.beginPath();
+      ctx.arc(0, 0, 2, 0, Math.PI*2);
+      ctx.fill();
+    } else if (this.type === 'weapon') {
+      // Sword shape for weapon
+      ctx.shadowColor = '#38bdf8';
+      ctx.shadowBlur = 15;
+      
+      const grad = ctx.createLinearGradient(0, -this.h, 0, this.h);
+      grad.addColorStop(0, '#e0f2fe');
+      grad.addColorStop(1, '#38bdf8');
+      ctx.fillStyle = grad;
+      
+      // Blade
+      ctx.beginPath();
+      ctx.moveTo(0, -this.h);
+      ctx.lineTo(3, -this.h + 5);
+      ctx.lineTo(2, this.h/2);
+      ctx.lineTo(-2, this.h/2);
+      ctx.lineTo(-3, -this.h + 5);
+      ctx.fill();
+      
+      // Hilt
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillRect(-4, this.h/2, 8, 2);
+      ctx.fillRect(-1, this.h/2 + 2, 2, 4);
     }
+    
+    ctx.restore();
   }
 }
 
@@ -260,17 +340,36 @@ class Projectile {
   }
 
   draw(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number) {
-    const drawX = Math.floor(this.x - cameraX);
-    const drawY = Math.floor(this.y - cameraY);
+    const drawX = this.x - cameraX;
+    const drawY = this.y - cameraY;
+    const cx = drawX + this.w/2;
+    const cy = drawY + this.h/2;
     
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.atan2(this.vy, this.vx));
+
     ctx.shadowColor = this.color;
-    ctx.shadowBlur = 10;
-    ctx.fillStyle = this.color;
-    ctx.fillRect(drawX, drawY, this.w, this.h);
+    ctx.shadowBlur = 15;
     
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(drawX + (this.vx > 0 ? this.w - 2 : 0), drawY + 1, 2, 2);
+    // Glowing core
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, this.w);
+    grad.addColorStop(0, '#fff');
+    grad.addColorStop(0.4, this.color);
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, this.w, this.h, 0, 0, Math.PI*2);
+    ctx.fill();
+    
+    // Energy trail
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.beginPath();
+    ctx.ellipse(this.w/2, 0, 2, 1, 0, 0, Math.PI*2);
+    ctx.fill();
+    
+    ctx.restore();
   }
 }
 
@@ -292,7 +391,9 @@ class AmbientParticle {
   }
   draw(ctx: CanvasRenderingContext2D, camX: number, camY: number) {
     ctx.fillStyle = `rgba(255, 255, 255, ${this.alpha})`;
-    ctx.fillRect(Math.floor(this.x - camX), Math.floor(this.y - camY), this.size, this.size);
+    ctx.beginPath();
+    ctx.arc(this.x - camX, this.y - camY, this.size, 0, Math.PI*2);
+    ctx.fill();
   }
 }
 
@@ -306,8 +407,8 @@ class Portal {
     }
   }
   draw(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number) {
-    const cx = Math.floor(this.x - cameraX + this.w/2);
-    const cy = Math.floor(this.y - cameraY + this.h/2);
+    const cx = this.x - cameraX + this.w/2;
+    const cy = this.y - cameraY + this.h/2;
     
     // Draw "ENTER PORTAL" text above
     ctx.fillStyle = '#a855f7';
@@ -408,6 +509,7 @@ class Player extends Entity {
   isSpawning: boolean = false;
   spawnAnimTimer: number = 0;
   isVictorious: boolean = false;
+  weaponLevel: number = 1;
 
   constructor(x: number, y: number) {
     super(x, y, 12, 24);
@@ -628,14 +730,15 @@ class Player extends Entity {
     if (this.attackTimer > 0) {
       this.attackTimer--;
       if (this.attackTimer === ATTACK_DURATION - 3) {
-        // Adjust hitbox and damage based on combo
+        // Adjust hitbox and damage based on combo and weaponLevel
         const isFinisher = this.comboCount === 2;
-        const hitW = isFinisher ? 60 : 45;
-        const hitH = isFinisher ? 45 : 35;
+        const weaponScale = 1 + (this.weaponLevel - 1) * 0.5;
+        const hitW = (isFinisher ? 60 : 45) * weaponScale;
+        const hitH = (isFinisher ? 45 : 35) * weaponScale;
         const hitX = this.facingRight ? this.x + this.w : this.x - hitW;
-        const hitY = this.y - (isFinisher ? 20 : 10);
+        const hitY = this.y - (isFinisher ? 20 : 10) * weaponScale;
         const hitbox = { x: hitX, y: hitY, w: hitW, h: hitH };
-        const dmg = isFinisher ? 40 : 20;
+        const dmg = (isFinisher ? 40 : 20) * this.weaponLevel;
 
         let hitSomething = false;
 
@@ -673,12 +776,12 @@ class Player extends Entity {
     this.trail.forEach(t => {
       ctx.globalAlpha = (t.life / 10) * 0.5;
       ctx.fillStyle = this.plungeState === 'falling' ? '#facc15' : '#6ee7b7';
-      ctx.fillRect(Math.floor(t.x - cameraX), Math.floor(t.y - cameraY), this.w, this.h);
+      ctx.fillRect(t.x - cameraX, t.y - cameraY, this.w, this.h);
     });
     ctx.globalAlpha = 1;
 
-    const drawX = Math.floor(this.x - cameraX);
-    const drawY = Math.floor(this.y - cameraY);
+    const drawX = this.x - cameraX;
+    const drawY = this.y - cameraY;
 
     if (this.isSpawning) {
       const progress = this.spawnAnimTimer / 60;
@@ -698,24 +801,46 @@ class Player extends Entity {
     ctx.translate(drawX + this.w/2, drawY + this.h);
     ctx.scale(this.scaleX, this.scaleY);
     
-    ctx.fillStyle = this.color;
-    ctx.fillRect(-this.w/2, -this.h, this.w, this.h);
+    ctx.scale(this.facingRight ? 1 : -1, 1);
+    
+    // Glow
+    ctx.shadowColor = this.isVictorious ? '#4ade80' : '#3b82f6';
+    ctx.shadowBlur = 15;
+    
+    // Body
+    ctx.fillStyle = this.isVictorious ? '#4ade80' : '#3b82f6';
+    ctx.beginPath();
+    ctx.roundRect(-this.w/2, -this.h, this.w, this.h, this.w/2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
 
-    ctx.fillStyle = '#fff';
+    // Inner highlight
+    const grad = ctx.createRadialGradient(-2, -this.h/2 - 2, 0, 0, -this.h/2, this.w);
+    grad.addColorStop(0, 'rgba(255,255,255,0.4)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect(-this.w/2, -this.h, this.w, this.h, this.w/2);
+    ctx.fill();
+
+    // Eyes
+    ctx.fillStyle = 'white';
+    ctx.beginPath();
+    ctx.arc(1, -this.h + 8, 2.5, 0, Math.PI*2);
+    ctx.arc(6, -this.h + 8, 2.5, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.arc(2, -this.h + 8, 1, 0, Math.PI*2);
+    ctx.arc(7, -this.h + 8, 1, 0, Math.PI*2);
+    ctx.fill();
+
     if (this.isVictorious) {
-      // Happy face facing camera
-      ctx.fillRect(-this.w/2 + 2, -this.h + 4, 3, 3); // Left eye
-      ctx.fillRect(this.w/2 - 5, -this.h + 4, 3, 3);  // Right eye
-      // Smile
       ctx.beginPath();
-      ctx.arc(0, -this.h + 12, 4, 0, Math.PI, false);
-      ctx.strokeStyle = '#fff';
+      ctx.arc(3.5, -this.h + 12, 3, 0.2, Math.PI - 0.2, false);
       ctx.lineWidth = 1.5;
+      ctx.strokeStyle = '#0f172a';
       ctx.stroke();
-    } else {
-      // Normal eye
-      const eyeX = this.facingRight ? this.w/2 - 4 : -this.w/2 + 2;
-      ctx.fillRect(eyeX, -this.h + 4, 3, 3);
     }
     
     ctx.restore();
@@ -727,7 +852,8 @@ class Player extends Entity {
       ctx.beginPath();
       const cx = this.facingRight ? drawX + this.w/2 : drawX + this.w/2;
       const cy = drawY + this.h / 2;
-      const radius = this.comboCount === 2 ? 60 : 45; // Bigger swoosh on finisher
+      const weaponScale = 1 + (this.weaponLevel - 1) * 0.5;
+      const radius = (this.comboCount === 2 ? 60 : 45) * weaponScale; // Bigger swoosh on finisher
       
       let startAngle, endAngle;
       if (this.comboCount === 0) {
@@ -844,8 +970,8 @@ class Enemy extends Entity {
   }
 
   draw(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number) {
-    const drawX = Math.floor(this.x - cameraX);
-    const drawY = Math.floor(this.y - cameraY);
+    const drawX = this.x - cameraX;
+    const drawY = this.y - cameraY;
 
     if (this.invulnerableTimer > 0 && Math.floor(Date.now() / 50) % 2 === 0) {
       ctx.globalAlpha = 0.5;
@@ -857,12 +983,40 @@ class Enemy extends Entity {
     ctx.translate(drawX + this.w/2, drawY + this.h);
     ctx.scale(this.scaleX, this.scaleY);
 
-    ctx.fillStyle = isTelegraphing ? '#fff' : this.color;
-    ctx.fillRect(-this.w/2, -this.h, this.w, this.h);
+    const bodyColor = isTelegraphing ? '#fff' : undefined;
+    ctx.scale(this.facingRight ? 1 : -1, 1);
     
-    ctx.fillStyle = isTelegraphing ? '#ef4444' : '#000';
-    const eyeX = this.facingRight ? this.w/2 - 5 : -this.w/2 + 2;
-    ctx.fillRect(eyeX, -this.h + 4, 3, 3);
+    ctx.shadowColor = '#ef4444';
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = bodyColor || '#ef4444';
+    
+    // Body
+    ctx.beginPath();
+    ctx.arc(0, -this.h/2, this.w/2, 0, Math.PI*2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Spikes on top
+    ctx.fillStyle = '#1e293b';
+    for(let i=-1; i<=1; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i*4 - 2, -this.h + 2);
+      ctx.lineTo(i*4 + 2, -this.h + 2);
+      ctx.lineTo(i*4, -this.h - 6);
+      ctx.fill();
+    }
+
+    // Claws
+    ctx.fillStyle = bodyColor || '#ef4444';
+    ctx.beginPath();
+    ctx.arc(-this.w/2 - 4, -this.h/2, 4, 0, Math.PI*2);
+    ctx.arc(this.w/2 + 4, -this.h/2, 4, 0, Math.PI*2);
+    ctx.fill();
+
+    // Eyes
+    ctx.fillStyle = 'white';
+    ctx.fillRect(2, -this.h/2 - 4, 4, 4);
+    ctx.fillRect(8, -this.h/2 - 4, 4, 4);
 
     ctx.restore();
     ctx.globalAlpha = 1;
@@ -1064,97 +1218,197 @@ class BossEnemy extends Enemy {
       ctx.globalAlpha = 0.5;
     }
 
-    const drawX = Math.floor(this.x - cameraX);
-    const drawY = Math.floor(this.y - cameraY);
+    const drawX = this.x - cameraX;
+    const drawY = this.y - cameraY;
     
     ctx.save();
     ctx.translate(drawX + this.w/2, drawY + this.h);
     ctx.scale(this.scaleX, this.scaleY);
 
-    ctx.fillStyle = this.actionState === 'telegraph' && Math.floor(Date.now() / 100) % 2 === 0 ? '#fff' : this.color;
-    ctx.fillRect(-this.w/2, -this.h, this.w, this.h);
+    const bodyColor = this.actionState === 'telegraph' && Math.floor(Date.now() / 100) % 2 === 0 ? '#fff' : this.color;
     
-    // White outline for better visibility
-    ctx.strokeStyle = '#fff';
+    // Halo (glowing)
+    ctx.strokeStyle = this.phase === 3 ? '#fbbf24' : (this.phase === 2 ? '#c084fc' : '#fca5a5');
+    ctx.shadowColor = ctx.strokeStyle;
+    ctx.shadowBlur = 10;
     ctx.lineWidth = 2;
-    ctx.strokeRect(-this.w/2, -this.h, this.w, this.h);
-    
-    ctx.fillStyle = '#000';
-    const eyeX = this.facingRight ? this.w/2 - 10 : -this.w/2 + 4;
-    ctx.fillRect(eyeX, -this.h + 10, 6, 6);
-    
-    // Angry eyebrows
     ctx.beginPath();
-    ctx.moveTo(eyeX - 2, -this.h + 6);
-    ctx.lineTo(eyeX + 8, -this.h + 10);
+    ctx.ellipse(0, -this.h - 15, 15, 4, 0, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Devil Wings
+    ctx.fillStyle = this.phase === 3 ? '#ea580c' : (this.phase === 2 ? '#9333ea' : '#b91c1c');
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 2;
+    const wingFlap = Math.sin(Date.now() / 150) * 0.2;
+    
+    // Left Wing
+    ctx.save();
+    ctx.translate(-this.w/2, -this.h + 20);
+    ctx.rotate(wingFlap);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-30, -20);
+    ctx.lineTo(-40, -10);
+    ctx.lineTo(-20, 10);
+    ctx.lineTo(-30, 20);
+    ctx.lineTo(0, 15);
+    ctx.fill();
     ctx.stroke();
+    ctx.restore();
+
+    // Right Wing
+    ctx.save();
+    ctx.translate(this.w/2, -this.h + 20);
+    ctx.rotate(-wingFlap);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(30, -20);
+    ctx.lineTo(40, -10);
+    ctx.lineTo(20, 10);
+    ctx.lineTo(30, 20);
+    ctx.lineTo(0, 15);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.scale(this.facingRight ? 1 : -1, 1);
+    
+    ctx.shadowColor = '#9333ea';
+    ctx.shadowBlur = 20;
+    ctx.fillStyle = bodyColor || '#9333ea';
+    
+    // Body
+    ctx.beginPath();
+    ctx.arc(0, -this.h/2, this.w/2, 0, Math.PI*2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Horns
+    ctx.fillStyle = '#1e293b';
+    ctx.beginPath();
+    ctx.moveTo(-10, -this.h + 4);
+    ctx.quadraticCurveTo(-15, -this.h - 10, -5, -this.h - 15);
+    ctx.quadraticCurveTo(-5, -this.h - 5, -2, -this.h + 2);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(10, -this.h + 4);
+    ctx.quadraticCurveTo(15, -this.h - 10, 5, -this.h - 15);
+    ctx.quadraticCurveTo(5, -this.h - 5, 2, -this.h + 2);
+    ctx.fill();
+
+    // Eyes
+    ctx.fillStyle = 'white';
+    ctx.fillRect(4, -this.h/2 - 8, 8, 8);
+    ctx.fillRect(20, -this.h/2 - 8, 8, 8);
 
     ctx.restore();
     ctx.globalAlpha = 1;
 
     // Boss HP Bar (Large, centered at bottom of screen)
     if (this.active && this.hp < this.maxHp) {
-      const barW = 300;
-      const barH = 12;
-      const barX = 200 - barW / 2; // Centered on 400 width canvas
-      const barY = 200; // Near bottom of 225 height canvas
+      const barW = 180;
+      const barH = 10;
+      const barX = 120 - barW / 2; // Centered on 240 width canvas
+      const barY = 220; // Near bottom of 240 height canvas
+      
+      const phaseMaxHp = this.maxHp / 3;
+      let currentPhaseHp = this.hp;
+      if (this.phase === 1) currentPhaseHp = this.hp - 2 * phaseMaxHp;
+      else if (this.phase === 2) currentPhaseHp = this.hp - phaseMaxHp;
+      
+      let currentPhaseDisplayHp = this.displayHp;
+      if (this.phase === 1) currentPhaseDisplayHp = this.displayHp - 2 * phaseMaxHp;
+      else if (this.phase === 2) currentPhaseDisplayHp = this.displayHp - phaseMaxHp;
+      
+      const hpRatio = Math.max(0, Math.min(1, currentPhaseHp / phaseMaxHp));
+      const displayRatio = Math.max(0, Math.min(1, currentPhaseDisplayHp / phaseMaxHp));
       
       ctx.fillStyle = '#000';
       ctx.fillRect(barX, barY, barW, barH);
       ctx.fillStyle = '#f87171';
-      ctx.fillRect(barX, barY, barW * (this.displayHp / this.maxHp), barH);
-      ctx.fillStyle = '#22c55e';
-      ctx.fillRect(barX, barY, barW * (this.hp / this.maxHp), barH);
+      ctx.fillRect(barX, barY, barW * displayRatio, barH);
+      
+      let hpColor = '#22c55e'; // Green for Phase 1
+      if (this.phase === 2) hpColor = '#eab308'; // Yellow for Phase 2
+      if (this.phase === 3) hpColor = '#ef4444'; // Red for Phase 3
+      
+      ctx.fillStyle = hpColor;
+      ctx.fillRect(barX, barY, barW * hpRatio, barH);
+      
+      // Draw phase markers (small squares next to the bar)
+      for (let i = 0; i < 3; i++) {
+        ctx.fillStyle = i < (3 - this.phase + 1) ? hpColor : '#333';
+        ctx.fillRect(barX + barW + 5 + i * 8, barY + 2, 6, 6);
+      }
       
       ctx.fillStyle = '#fff';
       ctx.font = 'bold 10px "JetBrains Mono", monospace';
       ctx.textAlign = 'center';
-      ctx.fillText(`BOSS - PHASE ${this.phase}`, 200, barY - 4);
+      ctx.fillText(`BOSS - PHASE ${this.phase}`, 120, barY - 4);
       ctx.textAlign = 'left';
     }
   }
 }
 
 class ShooterEnemy extends Enemy {
+  wallNormalX: number = 0;
+  crawlAngle: number = 0;
+
   constructor(x: number, y: number, hpMultiplier: number = 1) {
     super(x, y, hpMultiplier);
-    this.color = '#a855f7';
+    this.color = '#9333ea';
     this.hp = 40 * hpMultiplier;
     this.maxHp = 40 * hpMultiplier;
     this.displayHp = this.hp;
+    this.w = 24;
+    this.h = 24;
   }
 
   update(game: Game) {
     if (this.invulnerableTimer > 0) this.invulnerableTimer--;
     this.updateJuice();
-
-    this.vy += GRAVITY;
     this.displayHp += (this.hp - this.displayHp) * 0.1;
 
     const distToPlayer = Math.hypot(game.player.x - this.x, game.player.y - this.y);
     this.facingRight = game.player.x > this.x;
 
-    if (this.state === 'patrol') {
-      this.vx = 0;
-      if (distToPlayer < 250) {
-        this.state = 'chase';
+    let touchingWall = 0;
+    for (const plat of game.platforms) {
+      if (plat.isOneWay) continue;
+      if (this.y + this.h > plat.y && this.y < plat.y + plat.h) {
+        if (Math.abs(this.x + this.w - plat.x) < 5) touchingWall = -1;
+        if (Math.abs(this.x - (plat.x + plat.w)) < 5) touchingWall = 1;
       }
-    } else if (this.state === 'chase') {
-      if (distToPlayer < 100) {
-        this.vx = this.facingRight ? -1.5 : 1.5;
-      } else if (distToPlayer > 200) {
-        this.vx = this.facingRight ? 1.5 : -1.5;
-      } else {
-        this.vx = 0;
-        this.state = 'attack';
-        this.attackTimer = 50;
-      }
+    }
 
-      if (distToPlayer > 300) {
-        this.state = 'patrol';
+    this.wallNormalX = touchingWall;
+
+    if (this.wallNormalX !== 0) {
+      this.vy = 0;
+      this.vx = 0;
+      this.crawlAngle += 0.05;
+      this.y += Math.sin(this.crawlAngle) * 1;
+    } else {
+      this.vy += GRAVITY;
+      if (this.state === 'patrol' || this.state === 'chase') {
+        this.vx = this.facingRight ? 1.5 : -1.5;
       }
+    }
+
+    if (this.state === 'patrol') {
+      if (distToPlayer < 300) this.state = 'chase';
+    } else if (this.state === 'chase') {
+      if (distToPlayer < 250 && this.wallNormalX !== 0) {
+        this.state = 'attack';
+        this.attackTimer = 60;
+      } else if (distToPlayer < 150) {
+        this.state = 'attack';
+        this.attackTimer = 60;
+      }
+      if (distToPlayer > 400) this.state = 'patrol';
     } else if (this.state === 'attack') {
       this.vx *= 0.8;
       this.attackTimer--;
@@ -1165,20 +1419,75 @@ class ShooterEnemy extends Enemy {
 
       if (this.attackTimer === 0) {
         this.scaleX = 0.8; this.scaleY = 1.2;
-        const pVx = this.facingRight ? 5 : -5;
-        game.projectiles.push(new Projectile(this.x + this.w/2, this.y + this.h/2, pVx, 0, true));
+        const angle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
+        const pVx = Math.cos(angle) * 5;
+        const pVy = Math.sin(angle) * 5;
+        game.projectiles.push(new Projectile(this.x + this.w/2, this.y + this.h/2, pVx, pVy, true));
         this.state = 'chase';
       }
     }
   }
 
   draw(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number) {
-    super.draw(ctx, cameraX, cameraY);
-    const drawX = Math.floor(this.x - cameraX);
-    const drawY = Math.floor(this.y - cameraY);
-    ctx.fillStyle = '#fff';
-    const gunX = this.facingRight ? drawX + this.w : drawX - 6;
-    ctx.fillRect(gunX, drawY + this.h/2, 6, 2);
+    if (this.invulnerableTimer > 0 && Math.floor(Date.now() / 50) % 2 === 0) {
+      ctx.globalAlpha = 0.5;
+    }
+
+    const drawX = this.x - cameraX;
+    const drawY = this.y - cameraY;
+    
+    ctx.save();
+    ctx.translate(drawX + this.w/2, drawY + this.h/2);
+    ctx.scale(this.scaleX, this.scaleY);
+
+    const isTelegraphing = this.state === 'attack' && this.attackTimer > 10 && this.attackTimer < 25;
+    const bodyColor = isTelegraphing ? '#fff' : undefined;
+
+    ctx.scale(this.facingRight ? 1 : -1, 1);
+    
+    ctx.shadowColor = '#a855f7';
+    ctx.shadowBlur = 15;
+    ctx.fillStyle = bodyColor || '#a855f7';
+    
+    // Head
+    ctx.beginPath();
+    ctx.arc(0, -this.h/2 - 4, this.w/2, Math.PI, 0);
+    ctx.lineTo(this.w/2, -this.h/2 + 4);
+    ctx.lineTo(-this.w/2, -this.h/2 + 4);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Tentacles
+    const t = Date.now() / 200;
+    for(let i=-2; i<=2; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i*3, -this.h/2 + 4);
+      ctx.quadraticCurveTo(i*4 + Math.sin(t + i)*4, -this.h/2 + 12, i*3 + Math.sin(t + i)*2, 0);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = bodyColor || '#a855f7';
+      ctx.stroke();
+    }
+
+    // Eyes (glowing squares)
+    ctx.shadowColor = 'white';
+    ctx.shadowBlur = 5;
+    ctx.fillStyle = 'white';
+    ctx.fillRect(2, -this.h/2 - 2, 4, 4);
+    ctx.fillRect(8, -this.h/2 - 2, 4, 4);
+    ctx.shadowBlur = 0;
+
+    ctx.restore();
+    ctx.globalAlpha = 1;
+
+    // HP Bar
+    if (this.hp < this.maxHp) {
+      ctx.fillStyle = '#000';
+      ctx.fillRect(drawX, drawY - 8, this.w, 4);
+      ctx.fillStyle = '#f87171';
+      ctx.fillRect(drawX, drawY - 8, this.w * (this.displayHp / this.maxHp), 4);
+      ctx.fillStyle = '#22c55e';
+      ctx.fillRect(drawX, drawY - 8, this.w * (this.hp / this.maxHp), 4);
+    }
   }
 }
 
@@ -1261,8 +1570,8 @@ class FlyingEnemy extends Enemy {
   }
 
   draw(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number) {
-    const drawX = Math.floor(this.x - cameraX);
-    const drawY = Math.floor(this.y - cameraY);
+    const drawX = this.x - cameraX;
+    const drawY = this.y - cameraY;
     
     if (this.invulnerableTimer > 0 && Math.floor(Date.now() / 50) % 2 === 0) {
       ctx.globalAlpha = 0.5;
@@ -1272,22 +1581,73 @@ class FlyingEnemy extends Enemy {
     ctx.translate(drawX + this.w/2, drawY + this.h/2);
     ctx.scale(this.scaleX, this.scaleY);
     
-    // Wings
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-    const wingOffset = Math.sin(this.hoverTimer * 10) * 5;
-    ctx.fillRect(-this.w, -this.h/2 + wingOffset, this.w, 4);
-    ctx.fillRect(0, -this.h/2 + wingOffset, this.w, 4);
+    // Animate wings by slightly scaling the sprite vertically based on hoverTimer
+    // Since wings are part of the sprite, we can just bob the whole sprite a bit
+    ctx.translate(0, Math.sin(this.hoverTimer * 10) * 2);
 
-    // Body
-    ctx.fillStyle = this.color;
+    ctx.scale(this.facingRight ? 1 : -1, 1);
+    
+    ctx.shadowColor = '#38bdf8';
+    ctx.shadowBlur = 15;
+    ctx.fillStyle = '#38bdf8';
+    
+    // Tail
     ctx.beginPath();
-    ctx.arc(0, 0, this.w/2, 0, Math.PI * 2);
+    ctx.moveTo(-this.w/2, 0);
+    ctx.quadraticCurveTo(-this.w - 4, 4, -this.w - 2, -2);
+    ctx.quadraticCurveTo(-this.w/2, -4, -this.w/2, 0);
     ctx.fill();
 
-    // Eye
-    ctx.fillStyle = '#000';
-    const eyeX = this.facingRight ? 2 : -4;
-    ctx.fillRect(eyeX, -2, 3, 3);
+    // Body
+    ctx.beginPath();
+    ctx.arc(0, 0, this.w/2 + 2, 0, Math.PI*2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Wings
+    const wingAngle = Math.sin(this.hoverTimer * 20) * 0.5;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.strokeStyle = '#bae6fd';
+    ctx.lineWidth = 1;
+    
+    // Back wing
+    ctx.save();
+    ctx.translate(-2, -4);
+    ctx.rotate(wingAngle - 0.2);
+    ctx.beginPath();
+    ctx.ellipse(-4, -8, 4, 10, 0.5, 0, Math.PI*2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    // Front wing
+    ctx.save();
+    ctx.translate(2, -4);
+    ctx.rotate(wingAngle + 0.2);
+    ctx.beginPath();
+    ctx.ellipse(2, -8, 5, 12, 0.2, 0, Math.PI*2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    // Eyes
+    ctx.fillStyle = 'white';
+    ctx.beginPath();
+    ctx.arc(2, -1, 2.5, 0, Math.PI*2);
+    ctx.arc(7, -1, 2.5, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.arc(3, -1, 1, 0, Math.PI*2);
+    ctx.arc(8, -1, 1, 0, Math.PI*2);
+    ctx.fill();
+    
+    // Blush
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.beginPath();
+    ctx.arc(0, 2, 1.5, 0, Math.PI*2);
+    ctx.arc(9, 2, 1.5, 0, Math.PI*2);
+    ctx.fill();
     
     ctx.restore();
     ctx.globalAlpha = 1;
@@ -1317,15 +1677,32 @@ class Spike {
   }
 
   draw(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number) {
-    ctx.fillStyle = '#94a3b8';
-    const drawX = Math.floor(this.x - cameraX);
-    const drawY = Math.floor(this.y - cameraY);
+    const drawX = this.x - cameraX;
+    const drawY = this.y - cameraY;
     
     for (let i = 0; i < this.w; i += 10) {
+      // Base spike
+      ctx.fillStyle = '#64748b';
       ctx.beginPath();
       ctx.moveTo(drawX + i, drawY + this.h);
       ctx.lineTo(drawX + i + 5, drawY);
       ctx.lineTo(drawX + i + 10, drawY + this.h);
+      ctx.fill();
+
+      // Highlight
+      ctx.fillStyle = '#cbd5e1';
+      ctx.beginPath();
+      ctx.moveTo(drawX + i + 5, drawY);
+      ctx.lineTo(drawX + i + 7, drawY + this.h);
+      ctx.lineTo(drawX + i + 5, drawY + this.h);
+      ctx.fill();
+      
+      // Shadow
+      ctx.fillStyle = '#334155';
+      ctx.beginPath();
+      ctx.moveTo(drawX + i + 5, drawY);
+      ctx.lineTo(drawX + i + 3, drawY + this.h);
+      ctx.lineTo(drawX + i + 5, drawY + this.h);
       ctx.fill();
     }
   }
@@ -1347,27 +1724,60 @@ class Platform {
   }
 
   draw(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number) {
-    const drawX = Math.floor(this.x - cameraX);
-    const drawY = Math.floor(this.y - cameraY);
+    const drawX = this.x - cameraX;
+    const drawY = this.y - cameraY;
     
     if (this.isOneWay) {
       // Draw one-way platform differently (thinner, wooden look)
-      ctx.fillStyle = '#9a3412'; // Orange 800
+      ctx.fillStyle = '#78350f'; // Amber 900
       ctx.fillRect(drawX, drawY, this.w, this.h);
-      ctx.fillStyle = '#c2410c'; // Orange 700
+      
+      // Wooden planks
+      ctx.fillStyle = '#92400e'; // Amber 800
+      for(let i=0; i<this.w; i+=15) {
+        ctx.fillRect(drawX + i, drawY, 14, this.h);
+      }
+      
+      // Highlight
+      ctx.fillStyle = '#b45309'; // Amber 700
       ctx.fillRect(drawX, drawY, this.w, 2);
     } else {
-      ctx.fillStyle = '#475569'; // Slate 600
-      ctx.fillRect(drawX, drawY, this.w, this.h);
-      ctx.fillStyle = '#64748b'; // Slate 500
-      ctx.fillRect(drawX, drawY, this.w, 4);
-      ctx.fillStyle = '#334155'; // Slate 700
-      for(let i=0; i<this.w; i+=20) {
-        ctx.fillRect(drawX + i, drawY + 10, 2, this.h - 10);
+      // Main block
+      const grad = ctx.createLinearGradient(drawX, drawY, drawX, drawY + this.h);
+      grad.addColorStop(0, '#475569'); // Slate 600
+      grad.addColorStop(1, '#1e293b'); // Slate 800
+      ctx.fillStyle = grad;
+      
+      if (ctx.roundRect) {
+        ctx.beginPath();
+        ctx.roundRect(drawX, drawY, this.w, this.h, [4, 4, 4, 4]);
+        ctx.fill();
+      } else {
+        ctx.fillRect(drawX, drawY, this.w, this.h);
       }
-      for(let i=10; i<this.h; i+=20) {
+
+      // Top edge highlight
+      ctx.fillStyle = '#94a3b8'; // Slate 400
+      if (ctx.roundRect) {
+        ctx.beginPath();
+        ctx.roundRect(drawX, drawY, this.w, 4, [4, 4, 0, 0]);
+        ctx.fill();
+      } else {
+        ctx.fillRect(drawX, drawY, this.w, 4);
+      }
+      
+      // Tech pattern
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.4)'; // Slate 900
+      for(let i=10; i<this.w; i+=30) {
+        ctx.fillRect(drawX + i, drawY + 10, 4, this.h - 10);
+      }
+      for(let i=15; i<this.h; i+=20) {
         ctx.fillRect(drawX, drawY + i, this.w, 2);
       }
+      
+      // Glowing accent line
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.3)'; // Sky 400
+      ctx.fillRect(drawX, drawY + 6, this.w, 1);
     }
   }
 }
@@ -1407,8 +1817,8 @@ export class Game {
     this.initLevel();
     
     // Snap camera to player immediately
-    this.cameraX = this.player.x - this.width / 2 + 60;
-    this.cameraY = this.player.y - this.height / 2 - 40;
+    this.cameraX = this.player.x - this.width / 2 + this.width * 0.15;
+    this.cameraY = this.player.y - this.height / 2 - this.height * 0.1;
   }
 
   nextLevel() {
@@ -1448,6 +1858,11 @@ export class Game {
     this.player.isVictorious = false;
     this.player.hp = this.player.maxHp; // Heal on level up
     
+    // Spawn a weapon upgrade in a hidden location behind the spawn point
+    this.platforms.push(new Platform(-100, 320, 40, 8, true));
+    this.platforms.push(new Platform(-180, 240, 60, 8, true));
+    this.items.push(new Item(-160, 220, 'weapon'));
+    
     const hpMult = 1 + (this.level - 1) * 0.5; // Enemies get 50% more HP per level
 
     // Floor (Solid)
@@ -1462,6 +1877,8 @@ export class Game {
     this.platforms.push(new Platform(50, 200, 80, 8, true));
     this.platforms.push(new Platform(200, 100, 80, 8, true));
     this.platforms.push(new Platform(350, 0, 80, 8, true));
+    this.items.push(new Item(180, 280, 'score'));
+    this.items.push(new Item(80, 180, 'score'));
     this.enemies.push(new FlyingEnemy(250, 150, hpMult));
     this.enemies.push(new Enemy(350, -20, hpMult));
 
@@ -1470,6 +1887,9 @@ export class Game {
     this.platforms.push(new Platform(800, 50, 100, 8, true));
     this.platforms.push(new Platform(950, 150, 100, 8, true));
     this.platforms.push(new Platform(1100, 250, 100, 8, true));
+    this.items.push(new Item(550, -70, 'score'));
+    this.items.push(new Item(650, -70, 'score'));
+    this.items.push(new Item(850, 30, 'score'));
     this.enemies.push(new ShooterEnemy(600, -80, hpMult));
     this.enemies.push(new FlyingEnemy(900, 0, hpMult));
     this.enemies.push(new FlyingEnemy(1050, 100, hpMult));
@@ -1480,6 +1900,9 @@ export class Game {
     this.platforms.push(new Platform(1300, 100, 80, 8, true));
     this.platforms.push(new Platform(1450, 0, 80, 8, true));
     this.platforms.push(new Platform(1600, 100, 80, 8, true));
+    this.items.push(new Item(1340, 80, 'score'));
+    this.items.push(new Item(1490, -20, 'score'));
+    this.items.push(new Item(1640, 80, 'score'));
     this.enemies.push(new Enemy(1350, 250, hpMult));
     this.enemies.push(new Enemy(1550, 250, hpMult));
     this.enemies.push(new FlyingEnemy(1450, -50, hpMult));
@@ -1491,6 +1914,10 @@ export class Game {
     this.platforms.push(new Platform(1850, 150, 100, 8, true));
     this.platforms.push(new Platform(2000, 250, 100, 8, true));
     this.platforms.push(new Platform(2000, 50, 100, 8, true));
+    this.items.push(new Item(1890, 280, 'score'));
+    this.items.push(new Item(2040, 230, 'score'));
+    this.items.push(new Item(1890, 130, 'score'));
+    this.items.push(new Item(2040, 30, 'score'));
     this.enemies.push(new ShooterEnemy(1850, 120, hpMult));
     this.enemies.push(new ShooterEnemy(2000, 20, hpMult));
     this.enemies.push(new FlyingEnemy(1900, 200, hpMult));
@@ -1498,16 +1925,21 @@ export class Game {
     // Section 5: Portal Area (High up)
     this.platforms.push(new Platform(2200, 0, 100, 8, true));
     this.platforms.push(new Platform(2400, -100, 100, 8, true));
-    this.platforms.push(new Platform(2600, -200, 400, 50, false));
+    this.platforms.push(new Platform(2600, -200, 500, 50, false)); // Extended to connect to the boss wall
+    this.items.push(new Item(2240, -20, 'score'));
+    this.items.push(new Item(2440, -120, 'score'));
+    this.items.push(new Item(2650, -220, 'score'));
+    this.items.push(new Item(2750, -220, 'score'));
     this.enemies.push(new FlyingEnemy(2300, -50, hpMult));
     this.enemies.push(new FlyingEnemy(2500, -150, hpMult));
     this.enemies.push(new Enemy(2700, -250, hpMult));
     this.enemies.push(new ShooterEnemy(2850, -250, hpMult));
     
     // Section 6: Boss Arena
-    this.items.push(new Item(2900, -220, 'health'));
-    this.items.push(new Item(2930, -220, 'health'));
-    this.items.push(new Item(2960, -220, 'health'));
+    // Health items placed in the compartment right before the boss wall
+    this.items.push(new Item(3020, -220, 'health'));
+    this.items.push(new Item(3050, -220, 'health'));
+    this.items.push(new Item(3080, -220, 'health'));
     
     this.platforms.push(new Platform(2950, -400, 100, 8, true));
     this.platforms.push(new Platform(3050, -550, 100, 8, true));
@@ -1520,8 +1952,8 @@ export class Game {
     this.portal = null;
 
     // Snap camera to player immediately
-    this.cameraX = this.player.x - this.width / 2 + 60;
-    this.cameraY = this.player.y - this.height / 2 - 40;
+    this.cameraX = this.player.x - this.width / 2 + this.width * 0.15;
+    this.cameraY = this.player.y - this.height / 2 - this.height * 0.1;
   }
 
   update(input: Input) {
@@ -1543,7 +1975,7 @@ export class Game {
       this.handlePhysics(this.player);
       
       for (let i = this.particles.length - 1; i >= 0; i--) {
-        this.particles[i].update();
+        this.particles[i].update(this);
         if (this.particles[i].life <= 0) this.particles.splice(i, 1);
       }
       for (const ft of this.floatingTexts) ft.update();
@@ -1576,7 +2008,7 @@ export class Game {
       this.handlePhysics(this.player);
       
       for (let i = this.particles.length - 1; i >= 0; i--) {
-        this.particles[i].update();
+        this.particles[i].update(this);
         if (this.particles[i].life <= 0) this.particles.splice(i, 1);
       }
       for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
@@ -1659,9 +2091,10 @@ export class Game {
         this.floatingTexts.push(new FloatingText(enemy.x, enemy.y, "+100", "#fff"));
         
         // Chance to drop items
-        if (Math.random() < 0.3) {
+        const dropRoll = Math.random();
+        if (dropRoll < 0.4) {
            this.items.push(new Item(enemy.x, enemy.y, 'health'));
-        } else if (Math.random() < 0.5) {
+        } else if (dropRoll < 0.7) {
            this.items.push(new Item(enemy.x, enemy.y, 'score'));
         }
 
@@ -1707,9 +2140,9 @@ export class Game {
       ap.update(this.width, this.height, this.cameraX, this.cameraY);
     }
 
-    const lookAhead = this.player.facingRight ? 60 : -60;
+    const lookAhead = this.player.facingRight ? this.width * 0.15 : -this.width * 0.15;
     const targetCamX = this.player.x - this.width / 2 + lookAhead;
-    const targetCamY = this.player.y - this.height / 2 - 40;
+    const targetCamY = this.player.y - this.height / 2 - this.height * 0.1;
     
     this.cameraX += (targetCamX - this.cameraX) * 0.08;
     this.cameraY += (targetCamY - this.cameraY) * 0.1;
@@ -1819,6 +2252,28 @@ export class Game {
       ap.draw(ctx, camX, camY);
     }
 
+    if (this.level === 1) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.font = '16px "JetBrains Mono", system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      
+      const tutX = 50 - camX;
+      const tutY = 50 - camY;
+      
+      ctx.fillText('移动: 方向键 / 左侧十字键', tutX, tutY);
+      ctx.fillText('跳跃: 空格键 / ⏫ 按钮', tutX, tutY + 30);
+      ctx.fillText('攻击: J 键 / ⚔️ 按钮', tutX, tutY + 60);
+      ctx.fillText('冲刺: Shift 键 / 💨 按钮', tutX, tutY + 90);
+      
+      ctx.fillStyle = '#facc15';
+      ctx.font = 'bold 16px "JetBrains Mono", system-ui, sans-serif';
+      ctx.fillText('【爬墙技巧】', tutX, tutY + 140);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.font = '16px "JetBrains Mono", system-ui, sans-serif';
+      ctx.fillText('跳向墙壁并按住朝向墙壁的方向键即可滑行', tutX, tutY + 170);
+      ctx.fillText('滑行时按跳跃键可以蹬墙跳！', tutX, tutY + 200);
+    }
+
     for (const p of this.particles) {
       if (p.isBlood && p.stopped) p.draw(ctx, camX, camY);
     }
@@ -1900,10 +2355,10 @@ export class Game {
       ctx.fillStyle = '#ef4444';
       ctx.font = 'bold 30px "JetBrains Mono", monospace';
       ctx.textAlign = 'center';
-      ctx.fillText('YOU DIED', this.width / 2, this.height / 2 - 20);
+      ctx.fillText('GAME OVER', this.width / 2, this.height / 2 - 20);
       ctx.fillStyle = '#fff';
-      ctx.font = '12px "JetBrains Mono", monospace';
-      ctx.fillText('Press SPACE to Restart', this.width / 2, this.height / 2 + 20);
+      ctx.font = '12px "JetBrains Mono", system-ui, sans-serif';
+      ctx.fillText('按 空格键 / ⏫ 重新开始', this.width / 2, this.height / 2 + 20);
       ctx.textAlign = 'left';
     } else if (this.gameWon) {
       // Draw victory text in the game world, relative to the camera
@@ -1922,8 +2377,8 @@ export class Game {
       ctx.font = '20px "JetBrains Mono", monospace';
       ctx.fillText(`Final Score: ${this.score}`, victoryX, victoryY + 40);
       
-      ctx.font = '14px "JetBrains Mono", monospace';
-      ctx.fillText('Press SPACE to Play Again', victoryX, victoryY + 80);
+      ctx.font = '14px "JetBrains Mono", system-ui, sans-serif';
+      ctx.fillText('按 空格键 / ⏫ 再玩一次', victoryX, victoryY + 80);
       
       ctx.textAlign = 'left';
       ctx.shadowBlur = 0;

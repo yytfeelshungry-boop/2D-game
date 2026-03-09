@@ -123,9 +123,9 @@ export class AudioManager {
         const freq = notes[this.bgmNoteIndex % notes.length];
         
         // Play bass note
-        this.playTone(freq / 2, 'triangle', noteDuration * 0.9, 0.03, undefined, this.nextNoteTime);
+        this.playTone(freq / 2, 'triangle', noteDuration * 0.9, 0.01, undefined, this.nextNoteTime);
         // Play arpeggio note
-        this.playTone(freq, 'square', noteDuration * 0.5, 0.015, undefined, this.nextNoteTime);
+        this.playTone(freq, 'square', noteDuration * 0.5, 0.005, undefined, this.nextNoteTime);
         
         this.nextNoteTime += noteDuration;
         this.bgmNoteIndex++;

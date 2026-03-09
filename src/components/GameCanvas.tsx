@@ -15,14 +15,15 @@ export default function GameCanvas() {
     if (!ctx) return;
 
     // Internal resolution
-    const GAME_WIDTH = 400;
-    const GAME_HEIGHT = 225;
+    const GAME_WIDTH = 240;
+    const GAME_HEIGHT = 240;
+    const SCALE = 5;
     
-    canvas.width = GAME_WIDTH;
-    canvas.height = GAME_HEIGHT;
+    canvas.width = GAME_WIDTH * SCALE;
+    canvas.height = GAME_HEIGHT * SCALE;
 
-    // Disable smoothing for pixel art look
-    ctx.imageSmoothingEnabled = false;
+    // Enable smoothing for vector graphics look
+    ctx.imageSmoothingEnabled = true;
 
     const input = new Input();
     setInputInstance(input);
@@ -49,7 +50,10 @@ export default function GameCanvas() {
         accumulator -= frameDuration;
       }
 
+      ctx.save();
+      ctx.scale(SCALE, SCALE);
       game.draw(ctx);
+      ctx.restore();
     };
 
     animationFrameId = requestAnimationFrame(loop);
@@ -62,20 +66,17 @@ export default function GameCanvas() {
   return (
     <div className="flex flex-col items-center justify-center w-full h-full bg-slate-950 text-slate-200 font-mono">
       <div className="mb-4 text-center">
-        <h1 className="text-3xl font-bold text-green-400 mb-2 tracking-widest uppercase" style={{ textShadow: '0 0 10px rgba(74, 222, 128, 0.5)' }}>Rogue Cells</h1>
-        <p className="text-xs text-slate-400">A pixel-art action roguelite</p>
+        <h1 className="text-3xl font-bold text-green-400 mb-2 tracking-widest uppercase" style={{ textShadow: '0 0 15px rgba(74, 222, 128, 0.8)' }}>Rogue Cells</h1>
+        <p className="text-xs text-slate-400">A high-definition action roguelite</p>
       </div>
       
-      <div className="relative rounded-lg overflow-hidden shadow-2xl shadow-green-900/20 border-2 border-slate-800 group touch-none select-none w-full max-w-[800px] bg-black">
+      <div className="relative rounded-lg overflow-hidden shadow-[0_0_50px_rgba(16,185,129,0.2)] border-2 border-slate-800 group touch-none select-none w-full max-w-[1200px] bg-black">
         <canvas
           ref={canvasRef}
-          className="w-full h-auto max-h-[65vh] object-contain aspect-video"
-          style={{ imageRendering: 'pixelated' }}
+          className="w-full h-auto max-h-[80vh] object-contain aspect-square"
         />
-        {/* CRT Scanline Overlay */}
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.25)_50%)] bg-[length:100%_4px] opacity-30 mix-blend-overlay" />
         {/* Vignette Overlay */}
-        <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_100px_rgba(0,0,0,0.8)]" />
+        <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_150px_rgba(0,0,0,0.9)]" />
         
         {/* Virtual Controller for Touch Devices */}
         <VirtualController input={inputInstance} />
