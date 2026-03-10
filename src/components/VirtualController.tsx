@@ -38,7 +38,7 @@ export default function VirtualController({ input }: VirtualControllerProps) {
   };
 
   return (
-    <div className="absolute inset-0 pointer-events-none flex justify-between items-end p-4 sm:p-8 z-50">
+    <div className="absolute inset-0 pointer-events-none flex justify-between items-end p-4 pb-16 sm:p-8 sm:pb-20 z-50">
       {/* Left side: D-Pad */}
       <div className="flex flex-col gap-1 pointer-events-auto opacity-70">
         <div className="flex justify-center">
