@@ -1053,8 +1053,8 @@ class BossEnemy extends Enemy {
     this.w = 40;
     this.h = 60;
     this.color = '#9d174d'; // Pink 800
-    this.hp = 300 * hpMultiplier;
-    this.maxHp = 300 * hpMultiplier;
+    this.hp = 1500 * hpMultiplier;
+    this.maxHp = 1500 * hpMultiplier;
     this.displayHp = this.hp;
     this.startX = x;
     this.startY = y;
@@ -1858,10 +1858,9 @@ export class Game {
     this.player.isVictorious = false;
     this.player.hp = this.player.maxHp; // Heal on level up
     
-    // Spawn a weapon upgrade in a hidden location behind the spawn point
-    this.platforms.push(new Platform(-100, 320, 40, 8, true));
-    this.platforms.push(new Platform(-180, 240, 60, 8, true));
-    this.items.push(new Item(-160, 220, 'weapon'));
+    // Spawn a weapon upgrade in the top right corner of the room below the boss
+    this.platforms.push(new Platform(3270, -100, 30, 8, true));
+    this.items.push(new Item(3280, -120, 'weapon'));
     
     const hpMult = 1 + (this.level - 1) * 0.5; // Enemies get 50% more HP per level
 
@@ -1942,7 +1941,7 @@ export class Game {
     this.items.push(new Item(3080, -220, 'health'));
     
     this.platforms.push(new Platform(2950, -400, 100, 8, true));
-    this.platforms.push(new Platform(3050, -550, 100, 8, true));
+    this.platforms.push(new Platform(3000, -550, 100, 8, true));
     this.platforms.push(new Platform(3100, -200, 800, 50, false)); // Floor
     this.platforms.push(new Platform(3100, -600, 50, 400, false)); // Left wall
     this.platforms.push(new Platform(3850, -600, 50, 400, false)); // Right wall

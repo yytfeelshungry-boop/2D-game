@@ -15,9 +15,9 @@ export default function GameCanvas() {
     if (!ctx) return;
 
     // Internal resolution
-    const GAME_WIDTH = 240;
-    const GAME_HEIGHT = 240;
-    const SCALE = 5;
+    const GAME_WIDTH = 360;
+    const GAME_HEIGHT = 360;
+    const SCALE = 10 / 3;
     
     canvas.width = GAME_WIDTH * SCALE;
     canvas.height = GAME_HEIGHT * SCALE;
